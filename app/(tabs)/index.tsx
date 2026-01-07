@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   logoImage: {
     width: SCREEN_WIDTH * 0.6,
-    height: SCREEN_HEIGHT * 0.18,
+    height: SCREEN_HEIGHT * 0.5,
   },
 
   // Features
