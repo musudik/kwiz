@@ -25,6 +25,11 @@ interface ServerToClientEvents {
         newStreak: number;
     }) => void;
     'quiz:leaderboard': (entries: LeaderboardEntry[]) => void;
+    'quiz:answer-stats': (stats: {
+        questionId: string;
+        correctOptionIds: number[];
+        stats: Record<number, { count: number; percentage: number; text: string }>;
+    }) => void;
     'quiz:ended': (finalResults: {
         rank: number;
         totalParticipants: number;
@@ -170,6 +175,11 @@ class SocketService {
             }
         });
 
+        this.socket.on('quiz:leaderboard', (entries) => {
+            console.log('[Socket] Leaderboard update:', entries.length, 'entries');
+            useQuizStore.getState().updateLeaderboard(entries);
+        });
+
         this.socket.on('quiz:ended', (finalResults) => {
             console.log('[Socket] Quiz ended. Rank:', finalResults.rank);
             useQuizStore.getState().endQuiz();
@@ -247,6 +257,11 @@ class SocketService {
     // Get participant ID
     getParticipantId(): string | null {
         return this.participantId;
+    }
+
+    // Get raw socket for direct event handling
+    getSocket(): Socket<ServerToClientEvents, ClientToServerEvents> | null {
+        return this.socket;
     }
 }
 

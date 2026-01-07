@@ -1,15 +1,19 @@
 /**
  * KWIZ App - Home Screen
- * Main landing screen with QR scanner, mascot, and level display
+ * Professional landing page with feature showcase and quick actions
  */
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Dimensions, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -18,27 +22,104 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  Button,
-  Card,
-  LevelProgressBar,
-  MiniStreak,
-  Text
-} from '@/components/ui';
-import { colors, layout, palette, safeArea, shadows, spacing } from '@/constants';
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { Button, Card, Text } from '@/components/ui';
+import { borderRadius, colors, layout, palette, safeArea, shadows, spacing } from '@/constants';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Feature capabilities for the slideshow
+const FEATURES = [
+  {
+    id: 1,
+    icon: '⚡',
+    title: 'Real-Time Quiz',
+    description: 'Live multiplayer quizzes with instant scoring and leaderboards',
+    color: '#FF6B6B',
+  },
+  {
+    id: 2,
+    icon: '📱',
+    title: 'QR Code Join',
+    description: 'Scan to join instantly - no typing, no hassle',
+    color: '#4ECDC4',
+  },
+  {
+    id: 3,
+    icon: '🌍',
+    title: 'Global Players',
+    description: 'Compete with players from around the world in real-time',
+    color: '#45B7D1',
+  },
+  {
+    id: 4,
+    icon: '✏️',
+    title: 'Custom Questions',
+    description: 'Create your own quizzes with unlimited questions',
+    color: '#96CEB4',
+  },
+  {
+    id: 5,
+    icon: '🏆',
+    title: 'Rewards & Rankings',
+    description: 'Earn XP, unlock badges, and climb the leaderboard',
+    color: '#FFEAA7',
+  },
+  {
+    id: 6,
+    icon: '📚',
+    title: 'Multiple Categories',
+    description: 'Education, entertainment, trivia, sports & more',
+    color: '#DDA0DD',
+  },
+  {
+    id: 7,
+    icon: '🎮',
+    title: 'Host Controls',
+    description: 'Auto-advance or manual control - you decide',
+    color: '#98D8C8',
+  },
+  {
+    id: 8,
+    icon: '🤖',
+    title: 'AI Quiz Generator',
+    description: 'Let AI create questions on any topic instantly',
+    color: '#F7DC6F',
+  },
+  {
+    id: 9,
+    icon: '👤',
+    title: 'Guest Mode',
+    description: 'Join without registration - play instantly',
+    color: '#BB8FCE',
+  },
+];
 
 export default function HomeScreen() {
-  const [currentLevel] = useState(2);
-  const [currentXP] = useState(5);
-  const [totalXP] = useState(10);
-  const [streak] = useState(3);
+  const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
 
-  // Mascot floating animation
-  const floatAnim = useSharedValue(0);
+  // Smooth progress animation for carousel
+  const progress = useSharedValue(0);
+  const logoGlow = useSharedValue(0);
 
-  React.useEffect(() => {
-    floatAnim.value = withRepeat(
+  // Feature rotation with smooth transition
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFeatureIndex((prev) => (prev + 1) % FEATURES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Animate progress when feature changes
+  useEffect(() => {
+    progress.value = withTiming(currentFeatureIndex, {
+      duration: 600,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1)
+    });
+  }, [currentFeatureIndex]);
+
+  // Subtle logo glow animation
+  useEffect(() => {
+    logoGlow.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
         withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.ease) })
@@ -48,19 +129,18 @@ export default function HomeScreen() {
     );
   }, []);
 
-  const mascotAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateY: floatAnim.value * -10 },
-      ],
-    };
-  });
+  const logoGlowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: interpolate(logoGlow.value, [0, 1], [0.3, 0.6]),
+    shadowRadius: interpolate(logoGlow.value, [0, 1], [10, 20]),
+  }));
+
+  const currentFeature = FEATURES[currentFeatureIndex];
 
   return (
     <View style={styles.container}>
       {/* Background gradient */}
       <LinearGradient
-        colors={[palette.brown[700], palette.brown[800]]}
+        colors={[palette.brown[700], palette.brown[800], palette.brown[900]]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -70,160 +150,125 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header with Level */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <LevelProgressBar
-                currentStep={currentXP}
-                totalSteps={totalXP}
-                level={currentLevel}
-                style={styles.levelProgress}
+          {/* Logo Section - 30% of screen */}
+          <Animated.View
+            entering={FadeInDown.duration(800).delay(100)}
+            style={styles.logoSection}
+          >
+            <Animated.View style={[styles.logoContainer, logoGlowStyle]}>
+              <Image
+                source={require('@/assets/images/logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
               />
-            </View>
-            <View style={styles.headerRight}>
-              {streak > 0 && <MiniStreak count={streak} />}
-              <View style={styles.settingsButton}>
-                <FontAwesome name="sliders" size={18} color={colors.text.secondary} />
-              </View>
-            </View>
-          </View>
+            </Animated.View>
+          </Animated.View>
 
-          {/* Mascot Section */}
-          <View style={styles.mascotSection}>
-            <Animated.View style={[styles.mascotContainer, mascotAnimatedStyle]}>
-              {/* Mascot placeholder - will be Lottie animation */}
-              <View style={styles.mascotWrapper}>
-                <View style={styles.mascotShadow} />
-                <View style={styles.mascot}>
-                  <Text style={styles.mascotEmoji}>🐱</Text>
+          {/* Feature Carousel - Full Width */}
+          <Animated.View
+            entering={FadeIn.duration(600).delay(400)}
+            style={styles.featuresSection}
+          >
+            <Text variant="labelSmall" color="muted" align="center" style={styles.featuresLabel}>
+              DISCOVER WHAT YOU CAN DO
+            </Text>
+
+            {/* Feature Card - Animated */}
+            <Animated.View
+              key={currentFeature.id}
+              entering={FadeIn.duration(500)}
+              style={styles.featureCardContainer}
+            >
+              <LinearGradient
+                colors={[currentFeature.color + '25', currentFeature.color + '10']}
+                style={styles.featureCard}
+              >
+                <View style={[styles.featureIconBg, { backgroundColor: currentFeature.color + '40' }]}>
+                  <Text style={styles.featureIcon}>{currentFeature.icon}</Text>
                 </View>
-              </View>
+                <Text variant="h2" color="primary" align="center" style={styles.featureTitle}>
+                  {currentFeature.title}
+                </Text>
+                <Text variant="bodyLarge" color="secondary" align="center" style={styles.featureDesc}>
+                  {currentFeature.description}
+                </Text>
+              </LinearGradient>
             </Animated.View>
 
-            <Text variant="displaySmall" color="primary" align="center" style={styles.mascotName}>
-              Kwizzy
-            </Text>
-            <Text variant="levelText" color="accent" align="center">
-              Level {currentLevel}
-            </Text>
-          </View>
+            {/* Progress Bar */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressTrack}>
+                <Animated.View
+                  style={[
+                    styles.progressFill,
+                    { width: `${((currentFeatureIndex + 1) / FEATURES.length) * 100}%` }
+                  ]}
+                />
+              </View>
+              <Text variant="labelSmall" color="muted" style={styles.progressText}>
+                {currentFeatureIndex + 1} / {FEATURES.length}
+              </Text>
+            </View>
+
+            {/* Dots indicator */}
+            <View style={styles.dotsContainer}>
+              {FEATURES.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    index === currentFeatureIndex && styles.dotActive,
+                  ]}
+                />
+              ))}
+            </View>
+          </Animated.View>
 
           {/* Quick Actions */}
-          <View style={styles.actionsSection}>
-            <Card variant="glass" padding="2xl" style={styles.actionCard}>
-              <View style={styles.actionContent}>
-                <View style={styles.actionIcon}>
-                  <FontAwesome name="qrcode" size={32} color={colors.text.primary} />
-                </View>
-                <View style={styles.actionText}>
-                  <Text variant="h3" color="primary">
-                    Join a Quiz
-                  </Text>
-                  <Text variant="bodySmall" color="secondary">
-                    Scan QR code or enter code
-                  </Text>
-                </View>
-              </View>
-              <Button
-                variant="primary"
-                size="large"
-                fullWidth
-                onPress={() => router.push('/scan')}
-                style={styles.scanButton}
-              >
-                Scan QR Code
-              </Button>
-            </Card>
-
-            {/* Enter Code Option */}
-            <View style={styles.orDivider}>
-              <View style={styles.dividerLine} />
-              <Text variant="labelSmall" color="muted" style={styles.orText}>
-                OR
+          <Animated.View
+            entering={FadeInUp.duration(500).delay(600)}
+            style={styles.actionsSection}
+          >
+            {/* Join Quiz Section */}
+            <Card variant="glass" padding="lg" style={styles.joinCard}>
+              <Text variant="labelSmall" color="secondary" style={styles.actionLabel}>
+                JOIN A QUIZ
               </Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <Button
-              variant="outline"
-              size="medium"
-              fullWidth
-              onPress={() => router.push('/join')}
-              icon={<FontAwesome name="keyboard-o" size={16} color={colors.text.primary} />}
-            >
-              Enter Quiz Code
-            </Button>
-
-            {/* Demo Quiz Button */}
-            <Button
-              variant="secondary"
-              size="medium"
-              fullWidth
-              onPress={() => router.push('/quiz-demo')}
-              style={styles.demoButton}
-              icon={<FontAwesome name="play" size={14} color={colors.text.inverse} />}
-            >
-              Try Demo Quiz
-            </Button>
-          </View>
-
-          {/* Stats Preview */}
-          <View style={styles.statsSection}>
-            <Text variant="labelSmall" color="secondary" style={styles.statsTitle}>
-              YOUR STATS
-            </Text>
-            <View style={styles.statsGrid}>
-              <Card variant="gradient" padding="lg" style={styles.statCard}>
-                <Text variant="scoreText" color="accent" style={styles.statValue}>
-                  12
-                </Text>
-                <Text variant="labelSmall" color="secondary">
-                  Quizzes
-                </Text>
-              </Card>
-              <Card variant="gradient" padding="lg" style={styles.statCard}>
-                <Text variant="scoreText" color="accent" style={styles.statValue}>
-                  84%
-                </Text>
-                <Text variant="labelSmall" color="secondary">
-                  Accuracy
-                </Text>
-              </Card>
-              <Card variant="gradient" padding="lg" style={styles.statCard}>
-                <Text variant="scoreText" color="accent" style={styles.statValue}>
-                  🏆 3
-                </Text>
-                <Text variant="labelSmall" color="secondary">
-                  Wins
-                </Text>
-              </Card>
-            </View>
-          </View>
-
-          {/* Recent Activity */}
-          <View style={styles.recentSection}>
-            <Text variant="labelSmall" color="secondary" style={styles.sectionTitle}>
-              RECENT QUIZZES
-            </Text>
-            <Card variant="default" padding="lg" style={styles.recentCard}>
-              <View style={styles.recentItem}>
-                <View style={styles.recentIcon}>
-                  <Text style={styles.recentEmoji}>📚</Text>
-                </View>
-                <View style={styles.recentInfo}>
-                  <Text variant="bodyMedium" color="primary">
-                    Science Trivia
-                  </Text>
-                  <Text variant="bodyXSmall" color="muted">
-                    2nd place • 850 pts
-                  </Text>
-                </View>
-                <Text variant="labelSmall" color="secondary">
-                  2h ago
-                </Text>
+              <View style={styles.joinRow}>
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onPress={() => router.push('/scan')}
+                  style={styles.joinButton}
+                  icon={<FontAwesome name="qrcode" size={18} color="#fff" />}
+                >
+                  Scan QR
+                </Button>
+                <Button
+                  variant="outline"
+                  size="medium"
+                  onPress={() => router.push('/join')}
+                  style={styles.joinButton}
+                  icon={<FontAwesome name="keyboard-o" size={16} color={colors.text.primary} />}
+                >
+                  Enter Code
+                </Button>
               </View>
             </Card>
-          </View>
+
+            {/* Other Actions */}
+            <View style={styles.actionGrid}>
+              <Button
+                variant="outline"
+                size="medium"
+                onPress={() => router.push('/leaderboard')}
+                style={styles.gridButton}
+                icon={<FontAwesome name="trophy" size={14} color={colors.text.accent} />}
+              >
+                Leaderboard
+              </Button>
+            </View>
+          </Animated.View>
 
           {/* Bottom spacing for tab bar */}
           <View style={styles.bottomSpacer} />
@@ -245,172 +290,131 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: layout.screenPaddingHorizontal,
-    paddingTop: Platform.OS === 'android' ? safeArea.top : 0,
+    paddingTop: Platform.OS === 'android' ? safeArea.top : spacing.sm,
   },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.lg,
-  },
-  headerLeft: {
-    flex: 1,
-    maxWidth: '60%',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  levelProgress: {
-    maxWidth: 200,
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.background.surface,
+  // Logo - 30% of screen height
+  logoSection: {
     alignItems: 'center',
     justifyContent: 'center',
+    height: SCREEN_HEIGHT * 0.22,
+    paddingVertical: spacing.md,
+  },
+  logoContainer: {
+    shadowColor: colors.interactive.primary,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+  },
+  logoImage: {
+    width: SCREEN_WIDTH * 0.6,
+    height: SCREEN_HEIGHT * 0.18,
+  },
+
+  // Features
+  featuresSection: {
+    paddingVertical: spacing.md,
+    width: '100%',
+  },
+  featuresLabel: {
+    marginBottom: spacing.md,
+  },
+  featureCardContainer: {
+    width: '100%',
+    minHeight: SCREEN_HEIGHT * 0.22,
+  },
+  featureCard: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: spacing['2xl'],
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius['2xl'],
     borderWidth: 1,
-    borderColor: colors.border.default,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-
-  // Mascot
-  mascotSection: {
-    alignItems: 'center',
-    paddingVertical: spacing['3xl'],
-  },
-  mascotContainer: {
-    alignItems: 'center',
-  },
-  mascotWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-  },
-  mascotShadow: {
-    position: 'absolute',
-    bottom: -20,
-    width: 100,
-    height: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 50,
-    transform: [{ scaleX: 1.5 }],
-  },
-  mascot: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: '#5BC0EB',
+  featureIconBg: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.xl,
+    marginBottom: spacing.lg,
+    ...shadows.lg,
   },
-  mascotEmoji: {
-    fontSize: 80,
+  featureIcon: {
+    fontSize: 38,
   },
-  mascotName: {
-    marginTop: spacing.xl,
-    fontFamily: 'PlayfairDisplay_700Bold',
+  featureTitle: {
+    marginBottom: spacing.sm,
+  },
+  featureDesc: {
+    lineHeight: 22,
+    maxWidth: '90%',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    backgroundColor: 'rgba(205, 152, 97, 0.2)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.interactive.primary,
+    borderRadius: 2,
+  },
+  progressText: {
+    minWidth: 40,
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(205, 152, 97, 0.3)',
+  },
+  dotActive: {
+    backgroundColor: colors.interactive.primary,
+    width: 18,
   },
 
   // Actions
   actionsSection: {
-    paddingVertical: spacing['2xl'],
-  },
-  actionCard: {
-    marginBottom: spacing.lg,
-  },
-  actionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: 'rgba(205, 152, 97, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.lg,
-  },
-  actionText: {
-    flex: 1,
-  },
-  scanButton: {
-    marginTop: spacing.sm,
-  },
-  orDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border.default,
-  },
-  orText: {
-    marginHorizontal: spacing.md,
-  },
-
-  // Stats
-  statsSection: {
-    paddingVertical: spacing.xl,
-  },
-  statsTitle: {
-    marginBottom: spacing.md,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    lineHeight: 32,
-  },
-
-  // Recent
-  recentSection: {
     paddingVertical: spacing.lg,
   },
-  sectionTitle: {
+  joinCard: {
+    marginBottom: spacing.lg,
+  },
+  actionLabel: {
     marginBottom: spacing.md,
   },
-  recentCard: {
-    marginBottom: spacing.sm,
-  },
-  recentItem: {
+  joinRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: spacing.md,
   },
-  recentIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(205, 152, 97, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  recentEmoji: {
-    fontSize: 20,
-  },
-  recentInfo: {
+  joinButton: {
     flex: 1,
   },
-  demoButton: {
-    marginTop: spacing.md,
+  actionGrid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  gridButton: {
+    flex: 1,
   },
 
   bottomSpacer: {
-    height: layout.tabBarHeight + spacing['2xl'],
+    height: Platform.OS === 'ios' ? 110 : 90,
   },
 });

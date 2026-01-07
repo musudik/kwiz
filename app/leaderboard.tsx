@@ -18,18 +18,6 @@ import { Avatar, Button, Card, Text } from '@/components/ui';
 import { borderRadius, colors, layout, palette, shadows, spacing } from '@/constants';
 import { LeaderboardEntry, useQuizStore, useUserStore } from '@/store';
 
-// Demo leaderboard data
-const DEMO_LEADERBOARD: LeaderboardEntry[] = [
-    { rank: 1, participantId: '1', displayName: 'QuizMaster', avatarId: 4, score: 2450, streak: 8 },
-    { rank: 2, participantId: '2', displayName: 'BrainWave', avatarId: 2, score: 2280, streak: 5 },
-    { rank: 3, participantId: '3', displayName: 'SpeedyMind', avatarId: 3, score: 2100, streak: 4 },
-    { rank: 4, participantId: '4', displayName: 'TriviaKing', avatarId: 1, score: 1950, streak: 3 },
-    { rank: 5, participantId: '5', displayName: 'SmartCookie', avatarId: 5, score: 1820, streak: 2 },
-    { rank: 6, participantId: '6', displayName: 'KnowledgeNinja', avatarId: 6, score: 1700, streak: 2 },
-    { rank: 7, participantId: '7', displayName: 'FactFinder', avatarId: 7, score: 1580, streak: 1 },
-    { rank: 8, participantId: '8', displayName: 'WisdomSeeker', avatarId: 8, score: 1450, streak: 1 },
-];
-
 export default function LeaderboardScreen() {
     const { leaderboard: storeLeaderboard, session } = useQuizStore();
     const { displayName, avatarId } = useUserStore();
@@ -37,14 +25,12 @@ export default function LeaderboardScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<'quiz' | 'weekly' | 'alltime'>('quiz');
 
-    // Use store leaderboard if available, otherwise demo data
-    const leaderboard = storeLeaderboard.length > 0
-        ? storeLeaderboard
-        : DEMO_LEADERBOARD;
+    // Only use real leaderboard data - no demo/placeholder data
+    const leaderboard = storeLeaderboard;
 
-    // Add current user if not in leaderboard
+    // Find current user in leaderboard
     const userInLeaderboard = leaderboard.find(e => e.displayName === displayName);
-    const userRank = userInLeaderboard?.rank || leaderboard.length + 1;
+    const userRank = userInLeaderboard?.rank || 0;
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -74,6 +60,13 @@ export default function LeaderboardScreen() {
     const renderLeaderboardItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
         const isCurrentUser = item.displayName === displayName;
         const rankEmoji = getRankEmoji(item.rank);
+
+        const formatTime = (seconds: number) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            if (mins > 0) return `${mins}m ${secs}s`;
+            return `${secs}s`;
+        };
 
         return (
             <Animated.View
@@ -105,11 +98,23 @@ export default function LeaderboardScreen() {
                             {item.displayName}
                             {isCurrentUser && <Text variant="bodySmall" color="accent"> (You)</Text>}
                         </Text>
-                        {item.streak > 0 && (
-                            <Text variant="bodyXSmall" color="secondary">
-                                🔥 {item.streak} streak
-                            </Text>
-                        )}
+                        <View style={styles.statsRow}>
+                            {item.correctAnswers !== undefined && (
+                                <Text variant="bodyXSmall" color="secondary">
+                                    ✓ {item.correctAnswers}
+                                </Text>
+                            )}
+                            {item.totalResponseTime !== undefined && (
+                                <Text variant="bodyXSmall" color="secondary">
+                                    ⏱ {formatTime(item.totalResponseTime)}
+                                </Text>
+                            )}
+                            {item.streak > 0 && (
+                                <Text variant="bodyXSmall" color="accent">
+                                    🔥 {item.streak}
+                                </Text>
+                            )}
+                        </View>
                     </View>
 
                     <View style={styles.scoreContainer}>
@@ -153,85 +158,108 @@ export default function LeaderboardScreen() {
                     ))}
                 </Animated.View>
 
-                {/* Top 3 Podium */}
-                <Animated.View entering={FadeInDown.delay(200)} style={styles.podiumContainer}>
-                    {leaderboard.slice(0, 3).map((entry, index) => {
-                        const positions = [1, 0, 2]; // Silver, Gold, Bronze order
-                        const pos = positions[index];
-                        const isFirst = pos === 0;
+                {/* Empty State - Show when no leaderboard entries */}
+                {leaderboard.length === 0 ? (
+                    <Animated.View entering={FadeIn.duration(400)} style={styles.emptyState}>
+                        <Text style={styles.emptyEmoji}>🏆</Text>
+                        <Text variant="h3" color="primary" align="center">
+                            No Rankings Yet
+                        </Text>
+                        <Text variant="bodyMedium" color="muted" align="center" style={{ marginTop: spacing.sm }}>
+                            Play a quiz to see the leaderboard!
+                        </Text>
+                        <Button
+                            variant="primary"
+                            size="medium"
+                            onPress={() => router.push('/join')}
+                            style={{ marginTop: spacing.xl }}
+                        >
+                            Join a Quiz
+                        </Button>
+                    </Animated.View>
+                ) : (
+                    <>
+                        {/* Top 3 Podium */}
+                        <Animated.View entering={FadeInDown.delay(200)} style={styles.podiumContainer}>
+                            {leaderboard.slice(0, 3).map((entry, index) => {
+                                const positions = [1, 0, 2]; // Silver, Gold, Bronze order
+                                const pos = positions[index];
+                                const isFirst = pos === 0;
 
-                        return (
-                            <View
-                                key={entry.participantId}
-                                style={[
-                                    styles.podiumItem,
-                                    pos === 0 && styles.podiumFirst,
-                                    pos === 1 && styles.podiumSecond,
-                                    pos === 2 && styles.podiumThird,
-                                ]}
-                            >
-                                <Avatar
-                                    mascotId={leaderboard[pos]?.avatarId || 1}
-                                    size={isFirst ? 'large' : 'medium'}
-                                    showBorder
+                                return (
+                                    <View
+                                        key={entry.participantId}
+                                        style={[
+                                            styles.podiumItem,
+                                            pos === 0 && styles.podiumFirst,
+                                            pos === 1 && styles.podiumSecond,
+                                            pos === 2 && styles.podiumThird,
+                                        ]}
+                                    >
+                                        <Avatar
+                                            mascotId={leaderboard[pos]?.avatarId || 1}
+                                            size={isFirst ? 'large' : 'medium'}
+                                            showBorder
+                                        />
+                                        <Text
+                                            variant={isFirst ? 'h4' : 'bodyMedium'}
+                                            color="primary"
+                                            numberOfLines={1}
+                                            style={styles.podiumName}
+                                        >
+                                            {leaderboard[pos]?.displayName || '-'}
+                                        </Text>
+                                        <View style={[styles.podiumRank, { height: isFirst ? 80 : pos === 1 ? 60 : 50 }]}>
+                                            <Text style={styles.podiumEmoji}>
+                                                {pos === 0 ? '🥇' : pos === 1 ? '🥈' : '🥉'}
+                                            </Text>
+                                            <Text variant="h4" color="accent">
+                                                {leaderboard[pos]?.score || 0}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </Animated.View>
+
+                        {/* Leaderboard List */}
+                        <FlatList
+                            data={leaderboard.slice(3)}
+                            keyExtractor={(item) => item.participantId}
+                            renderItem={({ item, index }) => renderLeaderboardItem({
+                                item: { ...item, rank: index + 4 },
+                                index
+                            })}
+                            contentContainerStyle={styles.listContent}
+                            showsVerticalScrollIndicator={false}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={refreshing}
+                                    onRefresh={handleRefresh}
+                                    tintColor={colors.text.accent}
                                 />
-                                <Text
-                                    variant={isFirst ? 'h4' : 'bodyMedium'}
-                                    color="primary"
-                                    numberOfLines={1}
-                                    style={styles.podiumName}
-                                >
-                                    {leaderboard[pos]?.displayName || '-'}
-                                </Text>
-                                <View style={[styles.podiumRank, { height: isFirst ? 80 : pos === 1 ? 60 : 50 }]}>
-                                    <Text style={styles.podiumEmoji}>
-                                        {pos === 0 ? '🥇' : pos === 1 ? '🥈' : '🥉'}
-                                    </Text>
-                                    <Text variant="h4" color="accent">
-                                        {leaderboard[pos]?.score || 0}
+                            }
+                            ListFooterComponent={<View style={styles.listFooter} />}
+                        />
+
+                        {/* User's position (if not in top) */}
+                        {!userInLeaderboard && userRank > 0 && (
+                            <Card variant="glass" padding="md" style={styles.userPositionCard}>
+                                <View style={styles.rankContainer}>
+                                    <Text variant="h4" color="muted">{userRank}</Text>
+                                </View>
+                                <Avatar mascotId={avatarId} size="small" />
+                                <View style={styles.playerInfo}>
+                                    <Text variant="bodyMedium" color="primary">
+                                        {displayName} <Text color="accent">(You)</Text>
                                     </Text>
                                 </View>
-                            </View>
-                        );
-                    })}
-                </Animated.View>
-
-                {/* Leaderboard List */}
-                <FlatList
-                    data={leaderboard.slice(3)}
-                    keyExtractor={(item) => item.participantId}
-                    renderItem={({ item, index }) => renderLeaderboardItem({
-                        item: { ...item, rank: index + 4 },
-                        index
-                    })}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            tintColor={colors.text.accent}
-                        />
-                    }
-                    ListFooterComponent={<View style={styles.listFooter} />}
-                />
-
-                {/* User's position (if not in top) */}
-                {!userInLeaderboard && (
-                    <Card variant="glass" padding="md" style={styles.userPositionCard}>
-                        <View style={styles.rankContainer}>
-                            <Text variant="h4" color="muted">{userRank}</Text>
-                        </View>
-                        <Avatar mascotId={avatarId} size="small" />
-                        <View style={styles.playerInfo}>
-                            <Text variant="bodyMedium" color="primary">
-                                {displayName} <Text color="accent">(You)</Text>
-                            </Text>
-                        </View>
-                        <View style={styles.scoreContainer}>
-                            <Text variant="h4" color="accent">0</Text>
-                        </View>
-                    </Card>
+                                <View style={styles.scoreContainer}>
+                                    <Text variant="h4" color="accent">0</Text>
+                                </View>
+                            </Card>
+                        )}
+                    </>
                 )}
             </SafeAreaView>
         </View>
@@ -342,6 +370,11 @@ const styles = StyleSheet.create({
     playerInfo: {
         flex: 1,
     },
+    statsRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: 2,
+    },
     scoreContainer: {
         alignItems: 'flex-end',
     },
@@ -359,5 +392,15 @@ const styles = StyleSheet.create({
         marginBottom: spacing.xl,
         gap: spacing.md,
         ...shadows.lg,
+    },
+    emptyState: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing['3xl'],
+    },
+    emptyEmoji: {
+        fontSize: 64,
+        marginBottom: spacing.lg,
     },
 });

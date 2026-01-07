@@ -5,7 +5,8 @@
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,20 +20,66 @@ import {
   Text,
 } from '@/components/ui';
 import { borderRadius, colors, layout, palette, safeArea, shadows, spacing } from '@/constants';
+import { UserRole, useUserStore } from '@/store';
+
+// Role display info
+const ROLE_INFO: Record<UserRole, { label: string; emoji: string; color: string }> = {
+  guest: { label: 'Guest', emoji: '👤', color: colors.text.muted },
+  player: { label: 'Player', emoji: '🎮', color: colors.text.secondary },
+  creator: { label: 'Creator', emoji: '✨', color: colors.text.accent },
+  moderator: { label: 'Moderator', emoji: '🛡️', color: '#4ECDC4' },
+  admin: { label: 'Admin', emoji: '👑', color: '#FFD700' },
+};
 
 export default function ProfileScreen() {
-  const [selectedAvatar, setSelectedAvatar] = useState(1);
-  const [displayName, setDisplayName] = useState('Player');
+  const {
+    displayName: storedName,
+    avatarId: storedAvatar,
+    level,
+    xp,
+    xpToNextLevel,
+    stats,
+    achievements: storedAchievements,
+    setDisplayName,
+    setAvatarId,
+    role,
+    roleRequestPending,
+    canCreateQuiz,
+    setRole,
+  } = useUserStore();
+
+  const roleInfo = ROLE_INFO[role];
+  const isCreator = canCreateQuiz();
+
+  const [editName, setEditName] = useState(storedName);
+  const [editAvatar, setEditAvatar] = useState(storedAvatar);
   const [isEditing, setIsEditing] = useState(false);
 
-  const achievements = [
-    { id: 1, name: 'First Quiz', emoji: '🌟', unlocked: true },
-    { id: 2, name: 'Speed Demon', emoji: '⚡', unlocked: true },
-    { id: 3, name: 'Perfect Score', emoji: '🏆', unlocked: false },
-    { id: 4, name: 'Streak Master', emoji: '🔥', unlocked: false },
-    { id: 5, name: 'Team Player', emoji: '🤝', unlocked: true },
-    { id: 6, name: 'Early Bird', emoji: '🐦', unlocked: false },
-  ];
+  // Sync local edit state when store changes
+  useEffect(() => {
+    if (!isEditing) {
+      setEditName(storedName);
+      setEditAvatar(storedAvatar);
+    }
+  }, [storedName, storedAvatar, isEditing]);
+
+  const handleSave = () => {
+    // Save to store
+    if (editName.trim()) {
+      setDisplayName(editName.trim());
+    }
+    setAvatarId(editAvatar);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    // Reset to stored values
+    setEditName(storedName);
+    setEditAvatar(storedAvatar);
+    setIsEditing(false);
+  };
+
+  const achievements = storedAchievements.slice(0, 6); // Show first 6
 
   return (
     <View style={styles.container}>
@@ -51,30 +98,46 @@ export default function ProfileScreen() {
           {/* Header */}
           <View style={styles.header}>
             <Text variant="h1" color="primary">Profile</Text>
-            <Button
-              variant="ghost"
-              size="small"
-              onPress={() => setIsEditing(!isEditing)}
-            >
-              {isEditing ? 'Done' : 'Edit'}
-            </Button>
+            {!isEditing ? (
+              <Button
+                variant="ghost"
+                size="small"
+                onPress={() => setIsEditing(true)}
+              >
+                Edit
+              </Button>
+            ) : (
+              <View style={styles.headerButtons}>
+                <Button variant="ghost" size="small" onPress={handleCancel}>
+                  Cancel
+                </Button>
+                <Button variant="primary" size="small" onPress={handleSave}>
+                  Save
+                </Button>
+              </View>
+            )}
           </View>
 
           {/* Profile Card */}
           <Card variant="glass" padding="2xl" style={styles.profileCard}>
             <View style={styles.profileContent}>
               <Avatar
-                mascotId={selectedAvatar}
+                mascotId={storedAvatar}
                 size="xlarge"
                 showBorder
               />
               <View style={styles.profileInfo}>
                 <Text variant="h2" color="primary" style={styles.profileName}>
-                  {displayName}
+                  {storedName}
                 </Text>
                 <View style={styles.levelBadge}>
                   <Text variant="labelSmall" color="accent">
-                    LEVEL 2 • 1,250 XP
+                    LEVEL {level} • {xp.toLocaleString()} XP
+                  </Text>
+                </View>
+                <View style={[styles.roleBadge, { backgroundColor: roleInfo.color + '20' }]}>
+                  <Text style={{ color: roleInfo.color, fontSize: 12 }}>
+                    {roleInfo.emoji} {roleInfo.label}
                   </Text>
                 </View>
               </View>
@@ -87,10 +150,10 @@ export default function ProfileScreen() {
                   XP TO NEXT LEVEL
                 </Text>
                 <Text variant="labelSmall" color="accent">
-                  750 / 1000
+                  {xp} / {xpToNextLevel}
                 </Text>
               </View>
-              <ProgressBar progress={0.75} variant="xp" size="medium" />
+              <ProgressBar progress={xp / xpToNextLevel} variant="xp" size="medium" />
             </View>
           </Card>
 
@@ -103,8 +166,8 @@ export default function ProfileScreen() {
 
               <Input
                 label="Display Name"
-                value={displayName}
-                onChangeText={setDisplayName}
+                value={editName}
+                onChangeText={setEditName}
                 variant="filled"
                 containerStyle={styles.input}
               />
@@ -113,10 +176,68 @@ export default function ProfileScreen() {
                 CHOOSE AVATAR
               </Text>
               <AvatarSelector
-                selectedId={selectedAvatar}
-                onSelect={setSelectedAvatar}
+                selectedId={editAvatar}
+                onSelect={setEditAvatar}
               />
             </Card>
+          )}
+
+          {/* Creator Section */}
+          {isCreator && (
+            <View style={styles.section}>
+              <Text variant="labelSmall" color="secondary" style={styles.sectionTitle}>
+                CREATOR TOOLS
+              </Text>
+              <Card variant="gradient" padding="lg" style={styles.creatorCard}>
+                <View style={styles.creatorContent}>
+                  <View style={styles.creatorIcon}>
+                    <Text style={{ fontSize: 32 }}>✨</Text>
+                  </View>
+                  <View style={styles.creatorInfo}>
+                    <Text variant="h4" color="primary">My Quizzes</Text>
+                    <Text variant="bodySmall" color="muted">Create and manage your quizzes</Text>
+                  </View>
+                </View>
+                <Button
+                  variant="primary"
+                  size="medium"
+                  fullWidth
+                  onPress={() => router.push('/my-quizzes')}
+                  icon={<FontAwesome name="puzzle-piece" size={14} color="#fff" />}
+                  style={{ marginTop: spacing.lg }}
+                >
+                  View My Quizzes
+                </Button>
+              </Card>
+            </View>
+          )}
+
+          {/* Request Creator Access (for non-creators) */}
+          {!isCreator && (
+            <View style={styles.section}>
+              <Card variant="default" padding="lg">
+                <View style={styles.requestContent}>
+                  <Text style={{ fontSize: 24, marginRight: spacing.md }}>✨</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="bodyMedium" color="primary">Want to create quizzes?</Text>
+                    <Text variant="bodySmall" color="muted">Request Creator access to build your own quizzes</Text>
+                  </View>
+                </View>
+                <Button
+                  variant="outline"
+                  size="medium"
+                  fullWidth
+                  onPress={() => {
+                    // For demo, immediately grant creator role
+                    setRole('creator');
+                  }}
+                  disabled={roleRequestPending}
+                  style={{ marginTop: spacing.md }}
+                >
+                  {roleRequestPending ? 'Request Pending...' : 'Become a Creator'}
+                </Button>
+              </Card>
+            </View>
           )}
 
           {/* Stats Section */}
@@ -128,7 +249,7 @@ export default function ProfileScreen() {
               <Card variant="gradient" padding="lg" style={styles.statCard}>
                 <Text style={styles.statEmoji}>🎯</Text>
                 <Text variant="h3" color="primary" style={styles.statValue}>
-                  12
+                  {stats.totalQuizzes}
                 </Text>
                 <Text variant="labelSmall" color="muted">
                   Quizzes Played
@@ -137,7 +258,9 @@ export default function ProfileScreen() {
               <Card variant="gradient" padding="lg" style={styles.statCard}>
                 <Text style={styles.statEmoji}>✅</Text>
                 <Text variant="h3" color="primary" style={styles.statValue}>
-                  84%
+                  {(stats.totalCorrect + stats.totalWrong) > 0
+                    ? Math.round((stats.totalCorrect / (stats.totalCorrect + stats.totalWrong)) * 100)
+                    : 0}%
                 </Text>
                 <Text variant="labelSmall" color="muted">
                   Accuracy
@@ -148,7 +271,7 @@ export default function ProfileScreen() {
               <Card variant="gradient" padding="lg" style={styles.statCard}>
                 <Text style={styles.statEmoji}>🔥</Text>
                 <Text variant="h3" color="primary" style={styles.statValue}>
-                  7
+                  {stats.bestStreak}
                 </Text>
                 <Text variant="labelSmall" color="muted">
                   Best Streak
@@ -157,7 +280,7 @@ export default function ProfileScreen() {
               <Card variant="gradient" padding="lg" style={styles.statCard}>
                 <Text style={styles.statEmoji}>🏆</Text>
                 <Text variant="h3" color="primary" style={styles.statValue}>
-                  3
+                  {stats.totalWins}
                 </Text>
                 <Text variant="labelSmall" color="muted">
                   Wins
@@ -298,6 +421,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
 
   // Profile Card
   profileCard: {
@@ -341,6 +468,41 @@ const styles = StyleSheet.create({
   },
   avatarLabel: {
     marginBottom: spacing.md,
+  },
+
+  // Role Badge
+  roleBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    marginTop: spacing.sm,
+  },
+
+  // Creator Section
+  creatorCard: {
+    // No additional styles needed
+  },
+  creatorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  creatorIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(205, 152, 97, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  creatorInfo: {
+    flex: 1,
+  },
+
+  // Request Creator
+  requestContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   // Stats

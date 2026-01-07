@@ -55,6 +55,7 @@ export default function LiveQuizScreen() {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [localLeaderboard, setLocalLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [questionNumber, setQuestionNumber] = useState(1);
+    const [answerStats, setAnswerStats] = useState<Record<number, { count: number; percentage: number; text: string }> | null>(null);
 
     // Timer refs
     const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -64,6 +65,36 @@ export default function LiveQuizScreen() {
 
     // Blink animation for last 5 seconds
     const blinkOpacity = useSharedValue(1);
+
+    // Listen for answer stats from server
+    useEffect(() => {
+        const socket = socketService.getSocket();
+        if (!socket) return;
+
+        const handleAnswerStats = (data: {
+            questionId: string;
+            correctOptionIds: number[];
+            stats: Record<number, { count: number; percentage: number; text: string }>;
+        }) => {
+            console.log('[LiveQuiz] Answer stats received:', data);
+
+            // Only update if this is for the current question
+            if (currentQuestion && data.questionId === currentQuestion.id) {
+                setAnswerStats(data.stats);
+                // Ensure we're in reveal phase
+                if (phase !== 'reveal') {
+                    setPhase('reveal');
+                    playSound('show_answer');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+            }
+        };
+
+        socket.on('quiz:answer-stats', handleAnswerStats);
+        return () => {
+            socket.off('quiz:answer-stats', handleAnswerStats);
+        };
+    }, [currentQuestion, phase]);
 
     // Initialize question
     useEffect(() => {
@@ -78,6 +109,7 @@ export default function LiveQuizScreen() {
             hasAnsweredRef.current = false;
             responseTimeRef.current = 0;
             blinkOpacity.value = 1;
+            setAnswerStats(null); // Reset stats for new question
 
             // Update question number based on session index (0-based to 1-based)
             const qNum = Math.min(
@@ -414,39 +446,72 @@ export default function LiveQuizScreen() {
 
                 {/* Options - Smooth fade animation */}
                 <View style={styles.optionsContainer}>
-                    {currentQuestion.options.map((option, index) => (
-                        <Animated.View
-                            key={`opt-${questionKey}-${option.id}`}
-                            entering={FadeInDown.duration(300).delay(index * 60)}
-                        >
-                            <Pressable
-                                onPress={() => handleSelectOption(option.id)}
-                                disabled={phase !== 'question' || hasAnsweredRef.current}
-                                style={[styles.optionButton, getOptionStyle(option.id)]}
+                    {currentQuestion.options.map((option, index) => {
+                        const percentage = phase === 'reveal' && answerStats ? answerStats[option.id]?.percentage ?? 0 : 0;
+                        const isCorrectOption = currentQuestion.correctOptionIds.includes(option.id);
+
+                        return (
+                            <Animated.View
+                                key={`opt-${questionKey}-${option.id}`}
+                                entering={FadeInDown.duration(300).delay(index * 60)}
                             >
-                                <View style={[styles.optionLabel, getOptionLabelStyle(option.id)]}>
-                                    <Text variant="buttonMedium" style={styles.optionLabelText}>
-                                        {optionLetters[index]}
-                                    </Text>
-                                </View>
-                                <Text
-                                    variant="bodyLarge"
-                                    color="primary"
-                                    style={styles.optionText}
-                                    numberOfLines={2}
+                                <Pressable
+                                    onPress={() => handleSelectOption(option.id)}
+                                    disabled={phase !== 'question' || hasAnsweredRef.current}
+                                    style={[styles.optionButton, getOptionStyle(option.id)]}
                                 >
-                                    {option.text}
-                                </Text>
-                                {phase === 'reveal' && currentQuestion.correctOptionIds.includes(option.id) && (
-                                    <Text style={styles.checkIcon}>✓</Text>
-                                )}
-                                {phase === 'reveal' && selectedOption === option.id &&
-                                    !currentQuestion.correctOptionIds.includes(option.id) && (
+                                    {/* Vote percentage bar (behind content) */}
+                                    {phase === 'reveal' && (
+                                        <View
+                                            style={[
+                                                styles.voteBar,
+                                                {
+                                                    width: `${percentage}%`,
+                                                    backgroundColor: isCorrectOption
+                                                        ? 'rgba(124, 185, 124, 0.4)'
+                                                        : 'rgba(155, 111, 83, 0.3)'
+                                                }
+                                            ]}
+                                        />
+                                    )}
+
+                                    <View style={[styles.optionLabel, getOptionLabelStyle(option.id)]}>
+                                        <Text variant="buttonMedium" style={styles.optionLabelText}>
+                                            {optionLetters[index]}
+                                        </Text>
+                                    </View>
+                                    <Text
+                                        variant="bodyLarge"
+                                        color="primary"
+                                        style={styles.optionText}
+                                        numberOfLines={2}
+                                    >
+                                        {option.text}
+                                    </Text>
+
+                                    {/* Show percentage during reveal */}
+                                    {phase === 'reveal' && (
+                                        <Text
+                                            variant="buttonMedium"
+                                            style={[
+                                                styles.percentageText,
+                                                isCorrectOption && styles.percentageTextCorrect
+                                            ]}
+                                        >
+                                            {percentage}%
+                                        </Text>
+                                    )}
+
+                                    {phase === 'reveal' && isCorrectOption && (
+                                        <Text style={styles.checkIcon}>✓</Text>
+                                    )}
+                                    {phase === 'reveal' && selectedOption === option.id && !isCorrectOption && (
                                         <Text style={styles.crossIcon}>✗</Text>
                                     )}
-                            </Pressable>
-                        </Animated.View>
-                    ))}
+                                </Pressable>
+                            </Animated.View>
+                        );
+                    })}
                 </View>
 
                 {/* Selected indicator (before reveal) */}
@@ -722,6 +787,8 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.xl,
         borderWidth: 2,
         minHeight: 60,
+        position: 'relative',
+        overflow: 'hidden',
     },
     optionDefault: {
         backgroundColor: 'rgba(100, 68, 51, 0.35)',
@@ -785,6 +852,23 @@ const styles = StyleSheet.create({
         color: colors.status.error,
         fontWeight: '700',
         marginLeft: spacing.sm,
+    },
+    voteBar: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        borderRadius: borderRadius.xl,
+    },
+    percentageText: {
+        color: colors.text.muted,
+        marginLeft: spacing.sm,
+        minWidth: 40,
+        textAlign: 'right',
+    },
+    percentageTextCorrect: {
+        color: colors.status.success,
+        fontWeight: '700',
     },
 
     // Selected indicator

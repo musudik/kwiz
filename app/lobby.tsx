@@ -73,11 +73,6 @@ export default function LobbyScreen() {
         router.replace('/');
     };
 
-    const handleStartDemo = () => {
-        // Navigate to quiz demo
-        router.replace('/quiz-demo');
-    };
-
     if (!session) {
         // Redirect if no session
         router.replace('/');
@@ -169,18 +164,10 @@ export default function LobbyScreen() {
                     <Mascot type="kwizzy" size="medium" animation="idle" interactive />
                 </View>
 
-                {/* Demo Button (for testing) */}
+                {/* Waiting Footer */}
                 <View style={styles.footer}>
-                    <Button
-                        variant="primary"
-                        size="large"
-                        fullWidth
-                        onPress={handleStartDemo}
-                    >
-                        Start Demo Quiz
-                    </Button>
-                    <Text variant="bodyXSmall" color="muted" align="center" style={styles.footerNote}>
-                        (Demo mode - quiz starts immediately)
+                    <Text variant="bodyMedium" color="muted" align="center">
+                        Waiting for the host to start the quiz...
                     </Text>
                 </View>
             </SafeAreaView>

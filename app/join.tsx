@@ -34,6 +34,14 @@ export default function JoinScreen() {
         }
     }, [params.code, isConnected]);
 
+    // Listen for session updates to navigate to lobby
+    useEffect(() => {
+        if (session && isJoining) {
+            setIsJoining(false);
+            router.replace('/lobby');
+        }
+    }, [session, isJoining]);
+
     const handleJoin = async () => {
         if (!quizCode.trim()) {
             setError('Please enter a quiz code');
@@ -54,16 +62,32 @@ export default function JoinScreen() {
                 await connect();
             }
 
+            // Set up error listener before joining
+            const socket = socketService.getSocket();
+            if (socket) {
+                const errorHandler = (errorData: { message: string }) => {
+                    setError(errorData.message || 'Failed to join quiz. Check the code and try again.');
+                    setIsJoining(false);
+                    socket.off('connection:error', errorHandler);
+                };
+                socket.on('connection:error', errorHandler);
+
+                // Clean up listener after timeout
+                setTimeout(() => {
+                    socket.off('connection:error', errorHandler);
+                }, 5000);
+            }
+
             // Join the quiz - the socket service will update the store with real session data
             socketService.joinQuiz(quizCode.toUpperCase(), displayName, avatarId);
 
-            // Wait a bit for the server response to come through
-            // The socket 'quiz:joined' event will update the store
+            // Timeout if no response
             setTimeout(() => {
-                setIsJoining(false);
-                // Navigate to lobby - the session will be populated by socket events
-                router.replace('/lobby');
-            }, 1500);
+                if (isJoining) {
+                    setError('Connection timeout. Please try again.');
+                    setIsJoining(false);
+                }
+            }, 5000);
         } catch (err: any) {
             setError(err.message || 'Failed to join quiz');
             setIsJoining(false);

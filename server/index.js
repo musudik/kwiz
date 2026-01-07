@@ -3,6 +3,9 @@
  * Simple Node.js server for testing real-time quiz functionality
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -27,99 +30,6 @@ app.use(express.json());
 // In-memory storage
 const quizSessions = new Map();
 const participants = new Map();
-
-// Demo quiz questions (shorter time for testing)
-const DEMO_QUESTIONS = [
-    {
-        id: 'q1',
-        text: 'What is the largest planet in our solar system?',
-        options: [
-            { id: 0, text: 'Mars' },
-            { id: 1, text: 'Jupiter' },
-            { id: 2, text: 'Saturn' },
-            { id: 3, text: 'Neptune' },
-        ],
-        correctOptionIds: [1],
-        timeLimit: 15,
-        points: 100,
-        type: 'mcq',
-    },
-    {
-        id: 'q2',
-        text: 'Which element has the chemical symbol "Au"?',
-        options: [
-            { id: 0, text: 'Silver' },
-            { id: 1, text: 'Aluminum' },
-            { id: 2, text: 'Gold' },
-            { id: 3, text: 'Copper' },
-        ],
-        correctOptionIds: [2],
-        timeLimit: 15,
-        points: 100,
-        type: 'mcq',
-    },
-    {
-        id: 'q3',
-        text: 'In what year did World War II end?',
-        options: [
-            { id: 0, text: '1943' },
-            { id: 1, text: '1944' },
-            { id: 2, text: '1945' },
-            { id: 3, text: '1946' },
-        ],
-        correctOptionIds: [2],
-        timeLimit: 15,
-        points: 100,
-        type: 'mcq',
-    },
-    {
-        id: 'q4',
-        text: 'What is the capital of Japan?',
-        options: [
-            { id: 0, text: 'Beijing' },
-            { id: 1, text: 'Seoul' },
-            { id: 2, text: 'Tokyo' },
-            { id: 3, text: 'Bangkok' },
-        ],
-        correctOptionIds: [2],
-        timeLimit: 15,
-        points: 100,
-        type: 'mcq',
-    },
-    {
-        id: 'q5',
-        text: 'Who painted the Mona Lisa?',
-        options: [
-            { id: 0, text: 'Vincent van Gogh' },
-            { id: 1, text: 'Leonardo da Vinci' },
-            { id: 2, text: 'Pablo Picasso' },
-            { id: 3, text: 'Michelangelo' },
-        ],
-        correctOptionIds: [1],
-        timeLimit: 15,
-        points: 100,
-        type: 'mcq',
-    },
-];
-
-// Create demo quiz session on startup
-function createDemoSession() {
-    const session = {
-        id: uuidv4(),
-        code: 'DEMO01',
-        title: 'Demo Quiz - General Knowledge',
-        hostName: 'KWIZ Bot',
-        questions: DEMO_QUESTIONS,
-        totalQuestions: DEMO_QUESTIONS.length,
-        currentQuestionIndex: -1,
-        status: 'waiting',
-        participants: new Map(),
-        createdAt: new Date(),
-    };
-    quizSessions.set(session.code, session);
-    console.log(`📋 Demo quiz created with code: ${session.code}`);
-    return session;
-}
 
 // Generate a random quiz code
 function generateQuizCode() {
@@ -198,21 +108,301 @@ app.get('/api/sessions', (req, res) => {
 });
 
 app.post('/api/sessions', (req, res) => {
-    const { title, hostName, questions } = req.body;
+    const { title, hostName, questions, code: requestedCode } = req.body;
+
+    // Validate questions are provided
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'Questions are required to create a quiz session'
+        });
+    }
+
+    // Use provided code if valid, otherwise generate new one
+    let finalCode = requestedCode;
+    if (!finalCode || quizSessions.has(finalCode)) {
+        finalCode = generateQuizCode();
+    }
+
     const session = {
         id: uuidv4(),
-        code: generateQuizCode(),
+        code: finalCode,
         title: title || 'New Quiz',
         hostName: hostName || 'Anonymous Host',
-        questions: questions || DEMO_QUESTIONS,
-        totalQuestions: (questions || DEMO_QUESTIONS).length,
+        questions: questions,
+        totalQuestions: questions.length,
         currentQuestionIndex: -1,
         status: 'waiting',
         participants: new Map(),
         createdAt: new Date(),
     };
     quizSessions.set(session.code, session);
+    console.log(`📋 New session created: ${session.code} - "${session.title}" by ${session.hostName} (${questions.length} questions)`);
     res.json({ success: true, code: session.code, id: session.id });
+});
+
+// AI Question Generation (Premium Feature)
+// Priority: 1) OpenRouter (default, free tier available), 2) OpenAI, 3) Mock data
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+
+// System prompt for AI question generation
+const AI_SYSTEM_PROMPT = `You are a quiz question generator. Generate a trivia question with exactly 4 answer options. 
+Return ONLY a valid JSON object with this exact format (no markdown, no code blocks):
+{"text": "question text here", "options": ["Option A", "Option B", "Option C", "Option D"], "correctIndex": 0}
+The correctIndex should be 0, 1, 2, or 3 indicating which option is correct.`;
+
+app.post('/api/ai/generate-question', async (req, res) => {
+    const { prompt } = req.body;
+
+    if (!prompt) {
+        return res.status(400).json({ success: false, error: 'Prompt is required' });
+    }
+
+    console.log(`🤖 AI Generation request: "${prompt}"`);
+
+    // Try OpenRouter first (default - has free tier with Devstral 2)
+    if (OPENROUTER_API_KEY) {
+        try {
+            console.log('📡 Using OpenRouter API...');
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'https://kwiz.app',
+                    'X-Title': 'KWIZ Quiz App',
+                },
+                body: JSON.stringify({
+                    // Devstral 2512 - Free tier model
+                    model: 'mistralai/devstral-2512:free',
+                    messages: [
+                        { role: 'system', content: AI_SYSTEM_PROMPT },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 300,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.choices && data.choices[0]) {
+                let content = data.choices[0].message.content;
+                // Clean up response - remove markdown code blocks if present
+                content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+                try {
+                    const question = JSON.parse(content);
+                    console.log('✅ OpenRouter Generated question:', question.text);
+                    return res.json({ success: true, question, provider: 'openrouter' });
+                } catch (parseError) {
+                    console.error('Failed to parse OpenRouter response:', content);
+                }
+            } else if (data.error) {
+                console.error('OpenRouter API error:', data.error);
+            }
+        } catch (error) {
+            console.error('OpenRouter API error:', error.message);
+        }
+    }
+
+    // Fallback to OpenAI if configured
+    if (OPENAI_API_KEY) {
+        try {
+            console.log('📡 Falling back to OpenAI API...');
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                },
+                body: JSON.stringify({
+                    model: 'gpt-3.5-turbo',
+                    messages: [
+                        { role: 'system', content: AI_SYSTEM_PROMPT },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 200,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.choices && data.choices[0]) {
+                const content = data.choices[0].message.content;
+                try {
+                    const question = JSON.parse(content);
+                    console.log('✅ OpenAI Generated question:', question.text);
+                    return res.json({ success: true, question, provider: 'openai' });
+                } catch (parseError) {
+                    console.error('Failed to parse OpenAI response:', content);
+                }
+            }
+        } catch (error) {
+            console.error('OpenAI API error:', error.message);
+        }
+    }
+
+    // Fallback: return a mock question (for demo/testing)
+    const mockQuestions = [
+        {
+            text: 'What is the capital of France?',
+            options: ['London', 'Berlin', 'Paris', 'Madrid'],
+            correctIndex: 2,
+        },
+        {
+            text: 'Which planet is known as the Red Planet?',
+            options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
+            correctIndex: 1,
+        },
+        {
+            text: 'Who painted the Mona Lisa?',
+            options: ['Vincent van Gogh', 'Leonardo da Vinci', 'Pablo Picasso', 'Michelangelo'],
+            correctIndex: 1,
+        },
+        {
+            text: 'What is the largest ocean on Earth?',
+            options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'],
+            correctIndex: 3,
+        },
+        {
+            text: 'In what year did World War II end?',
+            options: ['1943', '1944', '1945', '1946'],
+            correctIndex: 2,
+        },
+    ];
+
+    const randomQuestion = mockQuestions[Math.floor(Math.random() * mockQuestions.length)];
+    console.log('📝 Returning mock question (no API key configured)');
+    res.json({ success: true, question: randomQuestion, provider: 'mock' });
+});
+
+// Bulk AI Question Generation - generates multiple unique questions in one call
+app.post('/api/ai/generate-questions-bulk', async (req, res) => {
+    const { prompt, count = 5 } = req.body;
+
+    if (!prompt) {
+        return res.status(400).json({ success: false, error: 'Prompt is required' });
+    }
+
+    const questionCount = Math.min(Math.max(count, 1), 10); // Limit between 1-10
+    console.log(`🤖 Bulk AI Generation request: ${questionCount} questions for "${prompt}"`);
+
+    // System prompt for bulk generation
+    const BULK_SYSTEM_PROMPT = `You are a quiz question generator. Generate exactly ${questionCount} UNIQUE and DIFFERENT trivia questions based on the user's topic.
+Each question must be completely different from the others - different facts, different concepts.
+Return ONLY a valid JSON array with this exact format (no markdown, no code blocks):
+[
+  {"text": "question 1 text", "options": ["A", "B", "C", "D"], "correctIndex": 0},
+  {"text": "question 2 text", "options": ["A", "B", "C", "D"], "correctIndex": 1},
+  ...
+]
+The correctIndex should be 0, 1, 2, or 3 indicating which option is correct.
+Make sure each question tests a DIFFERENT fact or concept. Do NOT repeat similar questions.`;
+
+    // Try OpenRouter first
+    if (OPENROUTER_API_KEY) {
+        try {
+            console.log('📡 Using OpenRouter API for bulk generation...');
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'https://kwiz.app',
+                    'X-Title': 'KWIZ Quiz App',
+                },
+                body: JSON.stringify({
+                    model: 'mistralai/devstral-2512:free',
+                    messages: [
+                        { role: 'system', content: BULK_SYSTEM_PROMPT },
+                        { role: 'user', content: `Generate ${questionCount} unique quiz questions about: ${prompt}` }
+                    ],
+                    temperature: 0.9, // Higher temperature for more variety
+                    max_tokens: 1500, // More tokens for multiple questions
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.choices && data.choices[0]) {
+                let content = data.choices[0].message.content;
+                // Clean up response
+                content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+                try {
+                    const questions = JSON.parse(content);
+                    if (Array.isArray(questions) && questions.length > 0) {
+                        console.log(`✅ OpenRouter Generated ${questions.length} unique questions`);
+                        return res.json({ success: true, questions, provider: 'openrouter' });
+                    }
+                } catch (parseError) {
+                    console.error('Failed to parse bulk response:', content);
+                }
+            } else if (data.error) {
+                console.error('OpenRouter API error:', data.error);
+            }
+        } catch (error) {
+            console.error('OpenRouter bulk API error:', error.message);
+        }
+    }
+
+    // Fallback to OpenAI
+    if (OPENAI_API_KEY) {
+        try {
+            console.log('📡 Falling back to OpenAI for bulk generation...');
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                },
+                body: JSON.stringify({
+                    model: 'gpt-3.5-turbo',
+                    messages: [
+                        { role: 'system', content: BULK_SYSTEM_PROMPT },
+                        { role: 'user', content: `Generate ${questionCount} unique quiz questions about: ${prompt}` }
+                    ],
+                    temperature: 0.9,
+                    max_tokens: 1500,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.choices && data.choices[0]) {
+                let content = data.choices[0].message.content;
+                content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+                try {
+                    const questions = JSON.parse(content);
+                    if (Array.isArray(questions) && questions.length > 0) {
+                        console.log(`✅ OpenAI Generated ${questions.length} unique questions`);
+                        return res.json({ success: true, questions, provider: 'openai' });
+                    }
+                } catch (parseError) {
+                    console.error('Failed to parse OpenAI bulk response:', content);
+                }
+            }
+        } catch (error) {
+            console.error('OpenAI bulk API error:', error.message);
+        }
+    }
+
+    // Fallback: return mock questions
+    const mockQuestions = [
+        { text: 'What is the capital of France?', options: ['London', 'Berlin', 'Paris', 'Madrid'], correctIndex: 2 },
+        { text: 'Which planet is known as the Red Planet?', options: ['Venus', 'Mars', 'Jupiter', 'Saturn'], correctIndex: 1 },
+        { text: 'Who painted the Mona Lisa?', options: ['Van Gogh', 'Da Vinci', 'Picasso', 'Michelangelo'], correctIndex: 1 },
+        { text: 'What is the largest ocean?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctIndex: 3 },
+        { text: 'In what year did WW2 end?', options: ['1943', '1944', '1945', '1946'], correctIndex: 2 },
+    ];
+
+    const selectedQuestions = mockQuestions.slice(0, questionCount);
+    console.log(`📝 Returning ${selectedQuestions.length} mock questions`);
+    res.json({ success: true, questions: selectedQuestions, provider: 'mock' });
 });
 
 // Socket.IO connection handling
@@ -368,8 +558,30 @@ io.on('connection', (socket) => {
 // Active timers for auto-advance
 const activeTimers = new Map();
 
-// Helper function to advance to next question
-function advanceQuestion(sessionCode) {
+// Helper function to send answer stats and then advance to next question
+function endCurrentQuestion(sessionCode) {
+    const session = quizSessions.get(sessionCode);
+    if (!session || session.status !== 'active') return;
+
+    const currentQuestionIndex = session.currentQuestionIndex;
+    const currentQuestion = session.questions[currentQuestionIndex];
+
+    // Calculate and send answer statistics for the current question
+    const answerStats = calculateAnswerStats(session, currentQuestionIndex);
+    io.to(session.code).emit('quiz:answer-stats', {
+        questionId: currentQuestion.id,
+        correctOptionIds: currentQuestion.correctOptionIds,
+        stats: answerStats,
+    });
+
+    console.log(`📊 Quiz ${session.code}: Sent stats for Q${currentQuestionIndex + 1}`);
+
+    // Wait 3 seconds for reveal phase, then advance
+    setTimeout(() => advanceToNextQuestion(sessionCode), 3000);
+}
+
+// Helper function to advance to next question (called after reveal)
+function advanceToNextQuestion(sessionCode) {
     const session = quizSessions.get(sessionCode);
     if (!session || session.status !== 'active') return;
 
@@ -397,8 +609,11 @@ function advanceQuestion(sessionCode) {
             activeTimers.delete(sessionCode);
         }
 
-        console.log(`🏁 Quiz ${session.code} ended!`);
+        // Emit leaderboard one final time
+        io.to(session.code).emit('quiz:leaderboard', leaderboard);
         io.to(session.code).emit('quiz:ended', { final: true });
+
+        console.log(`🏁 Quiz ${session.code} ended!`);
     } else {
         // Send next question
         const question = session.questions[session.currentQuestionIndex];
@@ -414,11 +629,44 @@ function advanceQuestion(sessionCode) {
 
         console.log(`➡️ Quiz ${session.code}: Question ${session.currentQuestionIndex + 1}`);
 
-        // Schedule next question (auto-advance after time limit + 3 seconds for result display)
-        const advanceDelay = (question.timeLimit + 3) * 1000;
-        const timer = setTimeout(() => advanceQuestion(sessionCode), advanceDelay);
+        // Schedule end of this question (timer runs for timeLimit seconds)
+        const timer = setTimeout(() => endCurrentQuestion(sessionCode), question.timeLimit * 1000);
         activeTimers.set(sessionCode, timer);
     }
+}
+
+// Calculate answer statistics for a question
+function calculateAnswerStats(session, questionIndex) {
+    const question = session.questions[questionIndex];
+    const stats = {};
+
+    // Initialize stats for all options
+    question.options.forEach(opt => {
+        stats[opt.id] = { count: 0, percentage: 0, text: opt.text };
+    });
+
+    // Count votes for each option
+    let totalVotes = 0;
+    session.participants.forEach(participant => {
+        const answer = participant.answers.find(a => a.questionId === question.id);
+        if (answer && answer.selectedOptionIds.length > 0) {
+            answer.selectedOptionIds.forEach(optId => {
+                if (stats[optId]) {
+                    stats[optId].count++;
+                    totalVotes++;
+                }
+            });
+        }
+    });
+
+    // Calculate percentages
+    Object.keys(stats).forEach(optId => {
+        stats[optId].percentage = totalVotes > 0
+            ? Math.round((stats[optId].count / totalVotes) * 100)
+            : 0;
+    });
+
+    return stats;
 }
 
 app.post('/api/sessions/:code/start', (req, res) => {
@@ -432,16 +680,21 @@ app.post('/api/sessions/:code/start', (req, res) => {
     session.status = 'active';
     session.currentQuestionIndex = 0;
 
+    // Send session update first so client knows the question index
+    io.to(session.code).emit('session:update', {
+        currentQuestionIndex: session.currentQuestionIndex,
+        status: session.status,
+    });
+
     io.to(session.code).emit('quiz:started');
     io.to(session.code).emit('quiz:question', session.questions[0]);
 
     console.log(`🎮 Quiz ${session.code} started!${autoAdvance ? ' (auto-advance enabled)' : ''}`);
 
-    // If auto-advance is enabled, schedule next question
+    // If auto-advance is enabled, schedule end of first question after timer
     if (autoAdvance) {
         const question = session.questions[0];
-        const advanceDelay = (question.timeLimit + 3) * 1000;
-        const timer = setTimeout(() => advanceQuestion(session.code), advanceDelay);
+        const timer = setTimeout(() => endCurrentQuestion(session.code), question.timeLimit * 1000);
         activeTimers.set(session.code, timer);
     }
 
@@ -527,11 +780,6 @@ server.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`🔌 WebSocket ready on ws://localhost:${PORT}`);
     console.log('');
-
-    // Create demo session
-    createDemoSession();
-
-    console.log('');
     console.log('📖 API Endpoints:');
     console.log('   GET  /                           - Server status');
     console.log('   GET  /api/sessions               - List sessions');
@@ -542,6 +790,6 @@ server.listen(PORT, () => {
     console.log('   POST /api/sessions/:code/resume  - Resume quiz');
     console.log('   GET  /api/sessions/:code/leaderboard - Get leaderboard');
     console.log('');
-    console.log('💡 Demo quiz code: DEMO01');
+    console.log('✅ Server ready - Host a quiz from the app to get started!');
     console.log('');
 });

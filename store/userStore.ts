@@ -16,6 +16,19 @@ export interface Achievement {
     unlockedAt?: Date;
 }
 
+// User roles - determines permissions
+export type UserRole = 'guest' | 'player' | 'creator' | 'moderator' | 'admin';
+
+export interface RoleRequest {
+    id: string;
+    userId: string;
+    requestedRole: UserRole;
+    reason: string;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: Date;
+    reviewedAt?: Date;
+}
+
 export interface UserStats {
     totalQuizzes: number;
     totalCorrect: number;
@@ -35,6 +48,10 @@ export interface UserProfile {
     streak: number;
     stats: UserStats;
     achievements: Achievement[];
+    // Role-based permissions
+    role: UserRole;
+    roleRequestPending: boolean;
+    createdQuizIds: string[];
 }
 
 interface UserState extends UserProfile {
@@ -48,6 +65,12 @@ interface UserState extends UserProfile {
     updateStats: (update: Partial<UserStats>) => void;
     unlockAchievement: (achievementId: string) => void;
     resetUser: () => void;
+    // Role actions
+    setRole: (role: UserRole) => void;
+    requestRoleUpgrade: (role: UserRole) => void;
+    addCreatedQuiz: (quizId: string) => void;
+    removeCreatedQuiz: (quizId: string) => void;
+    canCreateQuiz: () => boolean;
 }
 
 const DEFAULT_ACHIEVEMENTS: Achievement[] = [
@@ -78,6 +101,9 @@ const initialState: Omit<UserProfile, never> = {
         averageResponseTime: 0,
     },
     achievements: DEFAULT_ACHIEVEMENTS,
+    role: 'player' as UserRole,
+    roleRequestPending: false,
+    createdQuizIds: [],
 };
 
 // Calculate XP needed for next level (exponential growth)
@@ -143,6 +169,24 @@ export const useUserStore = create<UserState>()(
             })),
 
             resetUser: () => set(initialState),
+
+            // Role management
+            setRole: (role) => set({ role }),
+
+            requestRoleUpgrade: (role) => set({ roleRequestPending: true }),
+
+            addCreatedQuiz: (quizId) => set((state) => ({
+                createdQuizIds: [...state.createdQuizIds, quizId],
+            })),
+
+            removeCreatedQuiz: (quizId) => set((state) => ({
+                createdQuizIds: state.createdQuizIds.filter(id => id !== quizId),
+            })),
+
+            canCreateQuiz: () => {
+                const { role } = get();
+                return ['creator', 'moderator', 'admin'].includes(role);
+            },
         }),
         {
             name: 'kwiz-user-storage',

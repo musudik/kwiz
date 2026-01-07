@@ -9,7 +9,7 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { colors, layout, shadows } from '@/constants';
+import { colors, shadows } from '@/constants';
 
 // Custom tab bar icon component
 function TabBarIcon(props: {
@@ -68,12 +68,12 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    backgroundColor: 'rgba(100, 68, 51, 0.85)',
+    backgroundColor: 'rgba(100, 68, 51, 0.95)',
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
-    height: layout.tabBarHeight,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-    paddingTop: 8,
+    height: Platform.OS === 'ios' ? 90 : 70,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    paddingTop: 12,
     ...shadows.lg,
   },
   tabBarLabel: {
