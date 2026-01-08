@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mascot } from '@/components/Mascot';
 import { Avatar, Button, Card, Text } from '@/components/ui';
 import { colors, layout, palette, spacing } from '@/constants';
+import { useTranslations } from '@/i18n';
 import { socketService } from '@/services';
 import { useQuizStore, useUserStore } from '@/store';
 
@@ -33,6 +34,7 @@ interface Participant {
 export default function LobbyScreen() {
     const { session, currentQuestion, resetQuiz } = useQuizStore();
     const { displayName, avatarId } = useUserStore();
+    const t = useTranslations();
 
     // Mock participants for demo
     const [participants, setParticipants] = useState<Participant[]>([
@@ -88,7 +90,7 @@ export default function LobbyScreen() {
             <Text variant="bodyMedium" color="primary" style={styles.participantName}>
                 {item.displayName}
                 {item.id === '1' && (
-                    <Text variant="bodySmall" color="accent"> (You)</Text>
+                    <Text variant="bodySmall" color="accent"> ({t.leaderboard.you})</Text>
                 )}
             </Text>
         </Animated.View>
@@ -105,11 +107,11 @@ export default function LobbyScreen() {
                 {/* Header */}
                 <Animated.View entering={FadeIn} style={styles.header}>
                     <View>
-                        <Text variant="labelSmall" color="secondary">QUIZ CODE</Text>
+                        <Text variant="labelSmall" color="secondary">{t.quiz.quizCode.toUpperCase()}</Text>
                         <Text variant="h2" color="accent">{session.code}</Text>
                     </View>
                     <Button variant="ghost" size="small" onPress={handleLeave}>
-                        Leave
+                        {t.quiz.leave}
                     </Button>
                 </Animated.View>
 
@@ -120,17 +122,17 @@ export default function LobbyScreen() {
                             {session.title}
                         </Text>
                         <Text variant="bodySmall" color="secondary" align="center">
-                            Hosted by {session.hostName}
+                            {t.quiz.hostedBy} {session.hostName}
                         </Text>
                         <View style={styles.quizStats}>
                             <View style={styles.statItem}>
                                 <Text variant="h4" color="accent">{session.totalQuestions}</Text>
-                                <Text variant="labelSmall" color="muted">Questions</Text>
+                                <Text variant="labelSmall" color="muted">{t.quiz.questions}</Text>
                             </View>
                             <View style={styles.statDivider} />
                             <View style={styles.statItem}>
                                 <Text variant="h4" color="accent">{participants.length}</Text>
-                                <Text variant="labelSmall" color="muted">Players</Text>
+                                <Text variant="labelSmall" color="muted">{t.quiz.players}</Text>
                             </View>
                         </View>
                     </Card>
@@ -140,14 +142,14 @@ export default function LobbyScreen() {
                 <View style={styles.waitingContainer}>
                     <Animated.View style={[styles.waitingDot, pulseStyle]} />
                     <Text variant="bodyMedium" color="secondary" style={styles.waitingText}>
-                        Waiting for host to start...
+                        {t.quiz.waiting}
                     </Text>
                 </View>
 
                 {/* Participants */}
                 <View style={styles.participantsContainer}>
                     <Text variant="labelSmall" color="secondary" style={styles.participantsTitle}>
-                        PLAYERS ({participants.length})
+                        {t.quiz.players.toUpperCase()} ({participants.length})
                     </Text>
                     <FlatList
                         data={participants}
@@ -167,7 +169,7 @@ export default function LobbyScreen() {
                 {/* Waiting Footer */}
                 <View style={styles.footer}>
                     <Text variant="bodyMedium" color="muted" align="center">
-                        Waiting for the host to start the quiz...
+                        {t.quiz.waitingForHost}
                     </Text>
                 </View>
             </SafeAreaView>

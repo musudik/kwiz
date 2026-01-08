@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Card, Text } from '@/components/ui';
 import { borderRadius, colors, layout, palette, safeArea, shadows, spacing } from '@/constants';
+import { useTranslations } from '@/i18n';
 import { QUIZ_CATEGORIES, QuizTemplate, useQuizTemplateStore, useUserStore } from '@/store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -177,9 +178,10 @@ function EmptyState({ canCreate }: { canCreate: boolean }) {
 export default function MyQuizzesScreen() {
     const { templates, deleteTemplate, duplicateTemplate, publishTemplate, unpublishTemplate, setCurrentTemplate } = useQuizTemplateStore();
     const { role, canCreateQuiz, createdQuizIds } = useUserStore();
+    const t = useTranslations();
 
     // Filter quizzes created by this user
-    const myQuizzes = templates.filter(t => createdQuizIds.includes(t.id) || t.createdBy === useUserStore.getState().id);
+    const myQuizzes = templates.filter(template => createdQuizIds.includes(template.id) || template.createdBy === useUserStore.getState().id);
     const canCreate = canCreateQuiz();
 
     const handleEdit = (quiz: QuizTemplate) => {
@@ -189,12 +191,12 @@ export default function MyQuizzesScreen() {
 
     const handleDelete = (quiz: QuizTemplate) => {
         Alert.alert(
-            'Delete Quiz',
-            `Are you sure you want to delete "${quiz.title || 'Untitled Quiz'}"? This action cannot be undone.`,
+            t.create.deleteQuiz,
+            t.create.deleteConfirm,
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t.common.cancel, style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t.create.delete,
                     style: 'destructive',
                     onPress: () => deleteTemplate(quiz.id),
                 },

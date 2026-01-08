@@ -6,7 +6,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -24,78 +24,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Card, Text } from '@/components/ui';
 import { borderRadius, colors, layout, palette, safeArea, shadows, spacing } from '@/constants';
+import { useTranslations } from '@/i18n';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Feature capabilities for the slideshow
-const FEATURES = [
-  {
-    id: 1,
-    icon: '⚡',
-    title: 'Real-Time Quiz',
-    description: 'Live multiplayer quizzes with instant scoring and leaderboards',
-    color: '#FF6B6B',
-  },
-  {
-    id: 2,
-    icon: '📱',
-    title: 'QR Code Join',
-    description: 'Scan to join instantly - no typing, no hassle',
-    color: '#4ECDC4',
-  },
-  {
-    id: 3,
-    icon: '🌍',
-    title: 'Global Players',
-    description: 'Compete with players from around the world in real-time',
-    color: '#45B7D1',
-  },
-  {
-    id: 4,
-    icon: '✏️',
-    title: 'Custom Questions',
-    description: 'Create your own quizzes with unlimited questions',
-    color: '#96CEB4',
-  },
-  {
-    id: 5,
-    icon: '🏆',
-    title: 'Rewards & Rankings',
-    description: 'Earn XP, unlock badges, and climb the leaderboard',
-    color: '#FFEAA7',
-  },
-  {
-    id: 6,
-    icon: '📚',
-    title: 'Multiple Categories',
-    description: 'Education, entertainment, trivia, sports & more',
-    color: '#DDA0DD',
-  },
-  {
-    id: 7,
-    icon: '🎮',
-    title: 'Host Controls',
-    description: 'Auto-advance or manual control - you decide',
-    color: '#98D8C8',
-  },
-  {
-    id: 8,
-    icon: '🤖',
-    title: 'AI Quiz Generator',
-    description: 'Let AI create questions on any topic instantly',
-    color: '#F7DC6F',
-  },
-  {
-    id: 9,
-    icon: '👤',
-    title: 'Guest Mode',
-    description: 'Join without registration - play instantly',
-    color: '#BB8FCE',
-  },
-];
-
 export default function HomeScreen() {
+  const t = useTranslations();
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
+
+  // Features with translations
+  const FEATURES = useMemo(() => [
+    { id: 1, icon: '⚡', title: t.features.realTimeQuiz, description: t.features.realTimeQuizDesc, color: '#FF6B6B' },
+    { id: 2, icon: '📱', title: t.features.qrCodeJoin, description: t.features.qrCodeJoinDesc, color: '#4ECDC4' },
+    { id: 3, icon: '🌍', title: t.features.globalPlayers, description: t.features.globalPlayersDesc, color: '#45B7D1' },
+    { id: 4, icon: '✏️', title: t.features.customQuestions, description: t.features.customQuestionsDesc, color: '#96CEB4' },
+    { id: 5, icon: '🏆', title: t.features.rewardsRankings, description: t.features.rewardsRankingsDesc, color: '#FFEAA7' },
+    { id: 6, icon: '📚', title: t.features.multipleCategories, description: t.features.multipleCategoriesDesc, color: '#DDA0DD' },
+    { id: 7, icon: '🎮', title: t.features.hostControls, description: t.features.hostControlsDesc, color: '#98D8C8' },
+    { id: 8, icon: '🤖', title: t.features.aiGenerator, description: t.features.aiGeneratorDesc, color: '#F7DC6F' },
+    { id: 9, icon: '👤', title: t.features.guestMode, description: t.features.guestModeDesc, color: '#BB8FCE' },
+  ], [t]);
 
   // Smooth progress animation for carousel
   const progress = useSharedValue(0);
@@ -107,7 +55,7 @@ export default function HomeScreen() {
       setCurrentFeatureIndex((prev) => (prev + 1) % FEATURES.length);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [FEATURES.length]);
 
   // Animate progress when feature changes
   useEffect(() => {
@@ -157,7 +105,7 @@ export default function HomeScreen() {
           >
             <Animated.View style={[styles.logoContainer, logoGlowStyle]}>
               <Image
-                source={require('@/assets/images/logo.png')}
+                source={require('../../assets/images/logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -232,7 +180,7 @@ export default function HomeScreen() {
             {/* Join Quiz Section */}
             <Card variant="glass" padding="lg" style={styles.joinCard}>
               <Text variant="labelSmall" color="secondary" style={styles.actionLabel}>
-                JOIN A QUIZ
+                {t.home.joinQuiz.toUpperCase()}
               </Text>
               <View style={styles.joinRow}>
                 <Button
@@ -242,7 +190,7 @@ export default function HomeScreen() {
                   style={styles.joinButton}
                   icon={<FontAwesome name="qrcode" size={18} color="#fff" />}
                 >
-                  Scan QR
+                  {t.home.scanQr}
                 </Button>
                 <Button
                   variant="outline"
@@ -251,7 +199,7 @@ export default function HomeScreen() {
                   style={styles.joinButton}
                   icon={<FontAwesome name="keyboard-o" size={16} color={colors.text.primary} />}
                 >
-                  Enter Code
+                  {t.home.enterCode}
                 </Button>
               </View>
             </Card>
@@ -265,7 +213,7 @@ export default function HomeScreen() {
                 style={styles.gridButton}
                 icon={<FontAwesome name="trophy" size={14} color={colors.text.accent} />}
               >
-                Leaderboard
+                {t.home.leaderboard}
               </Button>
             </View>
           </Animated.View>

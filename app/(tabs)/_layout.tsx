@@ -10,6 +10,7 @@ import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { colors, shadows } from '@/constants';
+import { useTranslations } from '@/i18n';
 
 // Custom tab bar icon component
 function TabBarIcon(props: {
@@ -25,6 +26,8 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
+  const t = useTranslations();
+
   return (
     <Tabs
       screenOptions={{
@@ -46,7 +49,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t.nav.home,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="home" color={color} focused={focused} />
           ),
@@ -55,9 +58,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Profile',
+          title: t.nav.profile,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="user" color={color} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: t.nav.settings,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="cog" color={color} focused={focused} />
           ),
         }}
       />

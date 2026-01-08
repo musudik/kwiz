@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors, layout, palette, spacing } from '../constants';
+import { useTranslations } from '../i18n';
 import { playSound } from '../services';
 import { Button, Card, Text } from './ui';
 
@@ -34,6 +35,7 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const [torch, setTorch] = useState(false);
+    const t = useTranslations();
 
     // Animation for scanner line
     const scanLineAnim = useSharedValue(0);
@@ -74,8 +76,8 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                 onScan(urlMatch[1].toUpperCase());
             } else {
                 Alert.alert(
-                    'Invalid QR Code',
-                    'This QR code doesn\'t appear to be a valid quiz code. Please try again.',
+                    t.create.invalidQrCode,
+                    t.create.invalidQrCodeMsg,
                     [{ text: 'OK', onPress: () => setScanned(false) }]
                 );
             }
@@ -92,7 +94,7 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                 />
                 <Card variant="glass" padding="2xl" style={styles.permissionCard}>
                     <Text variant="h3" color="primary" align="center">
-                        Loading Camera...
+                        {t.create.loading}
                     </Text>
                 </Card>
             </View>
@@ -110,10 +112,10 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                 <Card variant="glass" padding="2xl" style={styles.permissionCard}>
                     <Text style={styles.permissionIcon}>📷</Text>
                     <Text variant="h3" color="primary" align="center" style={styles.permissionTitle}>
-                        Camera Permission
+                        {t.create.cameraPermission}
                     </Text>
                     <Text variant="bodyMedium" color="secondary" align="center" style={styles.permissionText}>
-                        We need camera access to scan QR codes and join quizzes.
+                        {t.create.cameraAccessDesc}
                     </Text>
                     <Button
                         variant="primary"
@@ -122,14 +124,14 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                         onPress={requestPermission}
                         style={styles.permissionButton}
                     >
-                        Allow Camera Access
+                        {t.create.allowCamera}
                     </Button>
                     <Button
                         variant="ghost"
                         size="medium"
                         onPress={onClose}
                     >
-                        Enter Code Manually
+                        {t.create.enterManually}
                     </Button>
                 </Card>
             </View>
@@ -155,10 +157,10 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                 {/* Top section */}
                 <View style={styles.overlaySection}>
                     <Text variant="h2" color="white" align="center" style={styles.title}>
-                        Scan QR Code
+                        {t.create.scanQrCode}
                     </Text>
                     <Text variant="bodyMedium" color="secondary" align="center">
-                        Point your camera at the quiz QR code
+                        {t.create.pointCamera}
                     </Text>
                 </View>
 
@@ -201,7 +203,7 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                             onPress={() => setTorch(!torch)}
                             style={styles.controlButton}
                         >
-                            {torch ? '💡 On' : '🔦 Flash'}
+                            {torch ? '💡 On' : `🔦 ${t.create.flash}`}
                         </Button>
                         <Button
                             variant="outline"
@@ -209,7 +211,7 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                             onPress={onClose}
                             style={styles.controlButton}
                         >
-                            ✕ Close
+                            ✕ {t.create.close}
                         </Button>
                     </View>
 
@@ -220,7 +222,7 @@ export function QRScanner({ onScan, onClose, isActive = true }: QRScannerProps) 
                             onPress={() => setScanned(false)}
                             style={styles.rescanButton}
                         >
-                            Tap to scan again
+                            {t.create.tapToScan}
                         </Button>
                     )}
                 </View>

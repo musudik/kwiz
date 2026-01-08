@@ -23,3 +23,13 @@ export type {
     QuizTemplate
 } from './quizTemplateStore';
 
+export { DEFAULT_AI_PROVIDERS, LANGUAGES, THEMES, useSettingsStore } from './settingsStore';
+export type {
+    AIProvider,
+    AIProviderConfig,
+    Language,
+    LanguageOption,
+    Theme,
+    ThemeOption
+} from './settingsStore';
+

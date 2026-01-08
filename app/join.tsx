@@ -14,6 +14,7 @@ import { Mascot } from '@/components/Mascot';
 import { Avatar, Button, Card, Input, Text } from '@/components/ui';
 import { colors, layout, palette, spacing } from '@/constants';
 import { useConnection } from '@/hooks';
+import { useTranslations } from '@/i18n';
 import { socketService } from '@/services';
 import { useQuizStore, useUserStore } from '@/store';
 
@@ -26,6 +27,7 @@ export default function JoinScreen() {
     const { displayName, avatarId } = useUserStore();
     const { session } = useQuizStore();
     const { isConnected, connect, connectionStatus } = useConnection();
+    const t = useTranslations();
 
     // Auto-join if code was passed from QR scan
     useEffect(() => {
@@ -44,12 +46,12 @@ export default function JoinScreen() {
 
     const handleJoin = async () => {
         if (!quizCode.trim()) {
-            setError('Please enter a quiz code');
+            setError(t.alerts.invalidCode);
             return;
         }
 
         if (quizCode.length < 4 || quizCode.length > 8) {
-            setError('Quiz code should be 4-8 characters');
+            setError(t.alerts.invalidCode);
             return;
         }
 
@@ -109,7 +111,7 @@ export default function JoinScreen() {
                         size="small"
                         onPress={() => router.back()}
                     >
-                        ← Back
+                        ← {t.common.back}
                     </Button>
                 </Animated.View>
 
@@ -124,22 +126,21 @@ export default function JoinScreen() {
                     <Animated.View entering={SlideInUp.springify().delay(300)} style={styles.cardContainer}>
                         <Card variant="glass" padding="2xl">
                             <Text variant="h2" color="primary" align="center" style={styles.title}>
-                                Join Quiz
+                                {t.join.title}
                             </Text>
 
                             <Text variant="bodyMedium" color="secondary" align="center" style={styles.subtitle}>
-                                Enter the 6-digit quiz code to join
+                                {t.profile.enterCodeHint}
                             </Text>
 
                             {/* Quiz Code Input */}
                             <Input
-                                label="Quiz Code"
+                                label={t.join.enterCode}
                                 value={quizCode}
                                 onChangeText={(text) => {
                                     setQuizCode(text.toUpperCase());
                                     setError(null);
                                 }}
-                                placeholder="ABC123"
                                 variant="filled"
                                 autoCapitalize="characters"
                                 maxLength={8}
@@ -151,28 +152,30 @@ export default function JoinScreen() {
                             <View style={styles.userPreview}>
                                 <Avatar mascotId={avatarId} size="small" />
                                 <Text variant="bodyMedium" color="primary" style={styles.userName}>
-                                    Joining as {displayName}
+                                    {t.profile.joiningAs} {displayName}
                                 </Text>
                             </View>
 
-                            {/* Join Button */}
-                            <Button
-                                variant="primary"
-                                size="large"
-                                fullWidth
-                                onPress={handleJoin}
-                                loading={isJoining}
-                                disabled={!quizCode.trim() || isJoining}
-                            >
-                                {isJoining ? 'Joining...' : 'Join Quiz'}
-                            </Button>
+                            {/* Join Button - only show when code is entered */}
+                            {quizCode.trim().length > 0 && (
+                                <Button
+                                    variant="primary"
+                                    size="large"
+                                    fullWidth
+                                    onPress={handleJoin}
+                                    loading={isJoining}
+                                    disabled={isJoining}
+                                >
+                                    {isJoining ? t.join.joining : t.join.joinButton}
+                                </Button>
+                            )}
 
                             {/* Connection Status */}
                             {connectionStatus === 'connecting' && (
                                 <View style={styles.connectionStatus}>
                                     <ActivityIndicator size="small" color={colors.text.secondary} />
                                     <Text variant="bodySmall" color="secondary" style={styles.connectionText}>
-                                        Connecting to server...
+                                        {t.profile.connecting}
                                     </Text>
                                 </View>
                             )}

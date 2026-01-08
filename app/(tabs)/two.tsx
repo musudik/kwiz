@@ -7,7 +7,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -19,7 +19,8 @@ import {
   ProgressBar,
   Text,
 } from '@/components/ui';
-import { borderRadius, colors, layout, palette, safeArea, shadows, spacing } from '@/constants';
+import { borderRadius, colors, layout, palette, shadows, spacing } from '@/constants';
+import { useTranslations } from '@/i18n';
 import { UserRole, useUserStore } from '@/store';
 
 // Role display info
@@ -50,6 +51,7 @@ export default function ProfileScreen() {
 
   const roleInfo = ROLE_INFO[role];
   const isCreator = canCreateQuiz();
+  const t = useTranslations();
 
   const [editName, setEditName] = useState(storedName);
   const [editAvatar, setEditAvatar] = useState(storedAvatar);
@@ -97,22 +99,22 @@ export default function ProfileScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text variant="h1" color="primary">Profile</Text>
+            <Text variant="h1" color="primary">{t.profile.title}</Text>
             {!isEditing ? (
               <Button
                 variant="ghost"
                 size="small"
                 onPress={() => setIsEditing(true)}
               >
-                Edit
+                {t.common.edit}
               </Button>
             ) : (
               <View style={styles.headerButtons}>
                 <Button variant="ghost" size="small" onPress={handleCancel}>
-                  Cancel
+                  {t.common.cancel}
                 </Button>
                 <Button variant="primary" size="small" onPress={handleSave}>
-                  Save
+                  {t.common.save}
                 </Button>
               </View>
             )}
@@ -132,7 +134,7 @@ export default function ProfileScreen() {
                 </Text>
                 <View style={styles.levelBadge}>
                   <Text variant="labelSmall" color="accent">
-                    LEVEL {level} • {xp.toLocaleString()} XP
+                    {t.profile.level.toUpperCase()} {level} • {xp.toLocaleString()} XP
                   </Text>
                 </View>
                 <View style={[styles.roleBadge, { backgroundColor: roleInfo.color + '20' }]}>
@@ -147,7 +149,7 @@ export default function ProfileScreen() {
             <View style={styles.xpContainer}>
               <View style={styles.xpHeader}>
                 <Text variant="labelSmall" color="muted">
-                  XP TO NEXT LEVEL
+                  {t.profile.xpToNextLevel.toUpperCase()}
                 </Text>
                 <Text variant="labelSmall" color="accent">
                   {xp} / {xpToNextLevel}
@@ -161,11 +163,11 @@ export default function ProfileScreen() {
           {isEditing && (
             <Card variant="default" padding="xl" style={styles.editCard}>
               <Text variant="h4" color="primary" style={styles.editTitle}>
-                Edit Profile
+                {t.profile.editProfile}
               </Text>
 
               <Input
-                label="Display Name"
+                label={t.profile.displayName}
                 value={editName}
                 onChangeText={setEditName}
                 variant="filled"
@@ -173,7 +175,7 @@ export default function ProfileScreen() {
               />
 
               <Text variant="labelSmall" color="secondary" style={styles.avatarLabel}>
-                CHOOSE AVATAR
+                {t.profile.chooseAvatar.toUpperCase()}
               </Text>
               <AvatarSelector
                 selectedId={editAvatar}
@@ -186,7 +188,7 @@ export default function ProfileScreen() {
           {isCreator && (
             <View style={styles.section}>
               <Text variant="labelSmall" color="secondary" style={styles.sectionTitle}>
-                CREATOR TOOLS
+                {t.profile.creatorTools.toUpperCase()}
               </Text>
               <Card variant="gradient" padding="lg" style={styles.creatorCard}>
                 <View style={styles.creatorContent}>
@@ -194,8 +196,8 @@ export default function ProfileScreen() {
                     <Text style={{ fontSize: 32 }}>✨</Text>
                   </View>
                   <View style={styles.creatorInfo}>
-                    <Text variant="h4" color="primary">My Quizzes</Text>
-                    <Text variant="bodySmall" color="muted">Create and manage your quizzes</Text>
+                    <Text variant="h4" color="primary">{t.profile.myQuizzes}</Text>
+                    <Text variant="bodySmall" color="muted">{t.profile.manageQuizzes}</Text>
                   </View>
                 </View>
                 <Button
@@ -411,7 +413,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: layout.screenPaddingHorizontal,
-    paddingTop: Platform.OS === 'android' ? safeArea.top + spacing.lg : spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing['3xl'],
   },
 
   // Header

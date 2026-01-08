@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Button, Card, Text } from '@/components/ui';
 import { borderRadius, colors, layout, palette, shadows, spacing } from '@/constants';
+import { useTranslations } from '@/i18n';
 import { LeaderboardEntry, useQuizStore, useUserStore } from '@/store';
 
 export default function LeaderboardScreen() {
@@ -24,6 +25,7 @@ export default function LeaderboardScreen() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<'quiz' | 'weekly' | 'alltime'>('quiz');
+    const t = useTranslations();
 
     // Only use real leaderboard data - no demo/placeholder data
     const leaderboard = storeLeaderboard;
@@ -137,9 +139,9 @@ export default function LeaderboardScreen() {
                 {/* Header */}
                 <Animated.View entering={FadeIn} style={styles.header}>
                     <Button variant="ghost" size="small" onPress={() => router.back()}>
-                        ← Back
+                        ← {t.common.back}
                     </Button>
-                    <Text variant="h2" color="primary">Leaderboard</Text>
+                    <Text variant="h2" color="primary">{t.leaderboard.title}</Text>
                     <View style={{ width: 60 }} />
                 </Animated.View>
 
@@ -153,7 +155,7 @@ export default function LeaderboardScreen() {
                             onPress={() => setActiveTab(tab)}
                             style={styles.tabButton}
                         >
-                            {tab === 'quiz' ? 'This Quiz' : tab === 'weekly' ? 'Weekly' : 'All Time'}
+                            {tab === 'quiz' ? t.leaderboard.thisQuiz : tab === 'weekly' ? t.leaderboard.weekly : t.leaderboard.allTime}
                         </Button>
                     ))}
                 </Animated.View>
@@ -163,10 +165,10 @@ export default function LeaderboardScreen() {
                     <Animated.View entering={FadeIn.duration(400)} style={styles.emptyState}>
                         <Text style={styles.emptyEmoji}>🏆</Text>
                         <Text variant="h3" color="primary" align="center">
-                            No Rankings Yet
+                            {t.leaderboard.noRankings}
                         </Text>
                         <Text variant="bodyMedium" color="muted" align="center" style={{ marginTop: spacing.sm }}>
-                            Play a quiz to see the leaderboard!
+                            {t.leaderboard.playToSee}
                         </Text>
                         <Button
                             variant="primary"
@@ -174,7 +176,7 @@ export default function LeaderboardScreen() {
                             onPress={() => router.push('/join')}
                             style={{ marginTop: spacing.xl }}
                         >
-                            Join a Quiz
+                            {t.leaderboard.joinQuiz}
                         </Button>
                     </Animated.View>
                 ) : (
